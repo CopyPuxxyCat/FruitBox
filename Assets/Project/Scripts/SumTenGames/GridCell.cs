@@ -28,7 +28,6 @@ public class GridCell : MonoBehaviour
 
     public void Highlight(bool active)
     {
-        Debug.Log("goi highlthgt");
         if (background == null) return;
 
         background.color = active ? highlightColor : normalColor;
