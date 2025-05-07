@@ -15,6 +15,11 @@ public class GridManager : MonoBehaviour
 
     private List<GridCell> gridCells = new List<GridCell>();
 
+    void Awake()
+    {
+        LeanTween.init(5000); // Tăng giới hạn lên (tùy theo nhu cầu, ví dụ 1000 hoặc hơn)
+    }
+
     private void Start()
     {
         GenerateGrid();
