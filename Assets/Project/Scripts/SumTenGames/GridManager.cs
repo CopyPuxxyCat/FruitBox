@@ -72,4 +72,20 @@ public class GridManager : MonoBehaviour
     }
 
     public List<GridCell> GetAllCells() => gridCells;
+
+    public void SpawnNewGrid()
+    {
+        foreach (var cell in gridCells) cellPool.Return(cell);
+        gridCells.Clear();
+
+        solver.GenerateValidGrid(rows, cols);
+        for (int i = 0; i < rows * cols; i++)
+        {
+            GridCell cell = cellPool.Get();
+            cell.gameObject.SetActive(true);
+
+            cell.SetNumber(solver.GetNumberAt(i));
+            gridCells.Add(cell);
+        }
+    }
 }

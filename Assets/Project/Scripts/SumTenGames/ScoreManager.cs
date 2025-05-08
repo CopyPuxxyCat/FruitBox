@@ -11,5 +11,13 @@ public class ScoreManager : MonoBehaviour
         score += amount;
         scoreText.text = $"{score}";
     }
+
+    public int GetScore() => score;
+
+    public void ResetScore()
+    {
+        score = 0;
+        scoreText.text = "0";
+    }
 }
 

@@ -10,6 +10,7 @@ public class ButtonMenuSceneManager : MonoBehaviour
     [SerializeField] private GameObject settingsPanel;
     [SerializeField] private Slider musicSlider;
     [SerializeField] private Slider sfxSlider;
+    [SerializeField] public bool isSettingPanelOpen;
 
     [Header("Audio")]
     [SerializeField] private AudioMixer audioMixer;
@@ -19,6 +20,7 @@ public class ButtonMenuSceneManager : MonoBehaviour
     {
         settingsPanel.transform.localScale = Vector2.zero;
         settingsPanel.SetActive(false);
+        isSettingPanelOpen = false;
 
         // Load saved values
         float musicVol = PlayerPrefs.GetFloat("MusicVolume", 0.75f);
@@ -56,12 +58,14 @@ public class ButtonMenuSceneManager : MonoBehaviour
     {
         PlayBtnSound();
         settingsPanel.SetActive(true);
+        isSettingPanelOpen = true;
         settingsPanel.transform.LeanScale(Vector2.one, 0.5f);
     }
 
     public void CloseSettingsPanel()
     {
         PlayBtnSound();
+        isSettingPanelOpen = false;
         settingsPanel.transform.LeanScale(Vector2.zero, 1f).setEaseInBack().setOnComplete(OnCloseSettingComplete);
     }
 
@@ -92,6 +96,8 @@ public class ButtonMenuSceneManager : MonoBehaviour
     {
         if (Btn_Audio != null)
             Btn_Audio.Play();
-    }    
+    }   
+    
+    
 }
 

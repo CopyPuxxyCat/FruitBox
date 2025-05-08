@@ -10,11 +10,14 @@ public class SelectionManager : MonoBehaviour, IPointerDownHandler, IDragHandler
     public RectTransform selectionBox;
     public Slider timeSlider;
     public float timeLimit = 30f;
+    public GameController gameController;
+    [SerializeField] private ButtonMenuSceneManager btnManager;
 
     private Vector2 startPos;
     private Vector2 endPos;
     private List<GridCell> selectedCells = new List<GridCell>();
     private float timeRemaining;
+    
 
     void Start()
     {
@@ -23,14 +26,18 @@ public class SelectionManager : MonoBehaviour, IPointerDownHandler, IDragHandler
 
     void Update()
     {
-        if (timeRemaining > 0)
+        if (timeRemaining > 0 && btnManager.isSettingPanelOpen == false)
         {
             timeRemaining -= Time.deltaTime;
             timeSlider.value = timeRemaining / timeLimit;
         }
+        else if(timeRemaining > 0 && btnManager.isSettingPanelOpen == true)
+        {
+            timeSlider.value = timeRemaining / timeLimit;
+        }
         else
         {
-            // Game over or time-out logic here
+            gameController.GameOver();
         }
     }
 
@@ -133,6 +140,11 @@ public class SelectionManager : MonoBehaviour, IPointerDownHandler, IDragHandler
         }
 
         selectedCells.Clear();
+    }
+
+    public void ResetTimer()
+    {
+        timeRemaining = timeLimit;
     }
 }
 
