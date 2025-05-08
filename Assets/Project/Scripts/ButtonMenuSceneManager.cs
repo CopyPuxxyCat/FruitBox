@@ -45,6 +45,12 @@ public class ButtonMenuSceneManager : MonoBehaviour
         SceneManager.LoadScene("Level_1");
     }
 
+    public void BackToMainMenu()
+    {
+        PlayBtnSound();
+        SceneManager.LoadScene("MenuScene");
+    }    
+
     public void ExitGame()
     {
 #if UNITY_EDITOR
@@ -60,6 +66,8 @@ public class ButtonMenuSceneManager : MonoBehaviour
     {
         PlayBtnSound();
         settingsPanel.SetActive(true);
+        Canvas.ForceUpdateCanvases();
+        LayoutRebuilder.ForceRebuildLayoutImmediate(settingsPanel.GetComponent<RectTransform>());
         isSettingPanelOpen = true;
         settingsPanel.transform.LeanScale(Vector2.one, 0.5f);
     }

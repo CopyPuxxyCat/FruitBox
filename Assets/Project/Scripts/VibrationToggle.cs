@@ -1,8 +1,10 @@
-using TMPro;
+
 using UnityEngine;
 using UnityEngine.Localization;
 using UnityEngine.Localization.Settings;
+using TMPro;
 
+#if UNITY_IOS || UNITY_ANDROID
 public class VibrationToggle : MonoBehaviour
 {
     [Header("References")]
@@ -35,9 +37,7 @@ public class VibrationToggle : MonoBehaviour
         if (PlayerPrefs.HasKey("Vibration"))
             isVibrateOn = PlayerPrefs.GetInt("Vibration") == 1;
 
-        // Gọi khi game start và cũng khi đổi ngôn ngữ
         LocalizationSettings.SelectedLocaleChanged += OnLocaleChanged;
-
         UpdateUI();
     }
 
@@ -48,16 +48,15 @@ public class VibrationToggle : MonoBehaviour
 
     private void OnLocaleChanged(UnityEngine.Localization.Locale obj)
     {
-        UpdateUI(); // Cập nhật text khi đổi ngôn ngữ
+        UpdateUI();
     }
 
     private void UpdateUI()
     {
         if (onOffLabel != null)
         {
-            // Gọi async và lấy chuỗi đã dịch
             var localized = isVibrateOn ? onText : offText;
-            onOffLabel.text = localized.GetLocalizedString(); // đơn giản
+            onOffLabel.text = localized.GetLocalizedString();
         }
 
         if (buttonRect != null)
@@ -67,6 +66,14 @@ public class VibrationToggle : MonoBehaviour
         }
     }
 }
+#else
+// Phiên bản rỗng nếu không phải mobile
+public class VibrationToggle : MonoBehaviour
+{
+    // Không làm gì trên PC/WebGL
+}
+#endif
+
 
 
 
