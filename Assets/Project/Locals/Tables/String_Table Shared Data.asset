@@ -35,6 +35,10 @@ MonoBehaviour:
     m_Key: off_key
     m_Metadata:
       m_Items: []
+  - m_Id: 4683942905323520
+    m_Key: select_game_key
+    m_Metadata:
+      m_Items: []
   m_Metadata:
     m_Items: []
   m_KeyGenerator:

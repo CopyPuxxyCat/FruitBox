@@ -12,6 +12,7 @@ public class SelectionManager : MonoBehaviour, IPointerDownHandler, IDragHandler
     public float timeLimit = 30f;
     public GameController gameController;
     [SerializeField] private ButtonMenuSceneManager btnManager;
+    [SerializeField] private AudioSource eatSound;
 
     private Vector2 startPos;
     private Vector2 endPos;
@@ -137,6 +138,7 @@ public class SelectionManager : MonoBehaviour, IPointerDownHandler, IDragHandler
             }
             int bonus = Mathf.Max(0, selectedCells.Count - 2);
             scoreManager.AddScore(10 + bonus);
+            PlayEatSound();
         }
 
         selectedCells.Clear();
@@ -146,6 +148,11 @@ public class SelectionManager : MonoBehaviour, IPointerDownHandler, IDragHandler
     {
         timeRemaining = timeLimit;
     }
+
+    private void PlayEatSound()
+    {
+        eatSound.Play();
+    }    
 }
 
 

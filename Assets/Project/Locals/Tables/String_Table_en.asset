@@ -38,6 +38,10 @@ MonoBehaviour:
     m_Localized: OFF
     m_Metadata:
       m_Items: []
+  - m_Id: 4683942905323520
+    m_Localized: SELECT GAME
+    m_Metadata:
+      m_Items: []
   references:
     version: 2
     RefIds: []
