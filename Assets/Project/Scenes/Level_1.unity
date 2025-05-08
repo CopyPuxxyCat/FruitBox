@@ -236,8 +236,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 467, y: 171}
-  m_SizeDelta: {x: 100, y: 1200}
+  m_AnchoredPosition: {x: 467, y: 5}
+  m_SizeDelta: {x: 100, y: 1400}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &52825007
 MonoBehaviour:
@@ -1058,7 +1058,7 @@ MonoBehaviour:
   scoreManager: {fileID: 992951720}
   selectionBox: {fileID: 535268318}
   timeSlider: {fileID: 52825007}
-  timeLimit: 150
+  timeLimit: 120
 --- !u!114 &333778502
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1108,8 +1108,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -9.999998, y: 42.315}
-  m_SizeDelta: {x: 820, y: 1384.629}
+  m_AnchoredPosition: {x: -9.999998, y: 22.343}
+  m_SizeDelta: {x: 820, y: 1365.3}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &535268317
 GameObject:
