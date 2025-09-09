@@ -17,12 +17,13 @@ public class GridManager : MonoBehaviour
 
     void Awake()
     {
-        LeanTween.init(5000); // Tăng giới hạn lên (tùy theo nhu cầu, ví dụ 1000 hoặc hơn)
+        LeanTween.init(5000);
+        GenerateGrid();// Tăng giới hạn lên (tùy theo nhu cầu, ví dụ 1000 hoặc hơn)
     }
 
     private void Start()
     {
-        GenerateGrid();
+        
     }
 
     public void GenerateGrid()

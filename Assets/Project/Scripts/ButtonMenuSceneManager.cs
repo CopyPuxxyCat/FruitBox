@@ -107,7 +107,7 @@ public class ButtonMenuSceneManager : MonoBehaviour
         yield return new WaitForSeconds(time);
     }
 
-    // Volume control functions
+    // Volume control function
     public void SetMusicVolume(float value)
     {
         audioMixer.SetFloat("MusicVolume", Mathf.Log10(Mathf.Clamp(value, 0.001f, 1)) * 20);

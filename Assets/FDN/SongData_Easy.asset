@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4a9404577c7bd6418799eea0284e817, type: 3}
+  m_Name: SongData_Easy
+  m_EditorClassIdentifier: 
+  songName: High Hopes - Panic! At The Disco
+  songClip: {fileID: 8300000, guid: c110bf1511af4c149837545ad05c339d, type: 3}
+  duration: 191
+  songIcon: {fileID: 0}
+  highScore: 1500
+  stars: 1
+  progress: 150
+  unlocked: 1

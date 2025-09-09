@@ -12,6 +12,11 @@ public class GameController : MonoBehaviour
 
     private bool isGameOver = false;
 
+    private void Awake()
+    {
+        isGameOver = false;
+    }
+
     public void GameOver()
     {
         if (isGameOver) return;
@@ -33,6 +38,9 @@ public class GameController : MonoBehaviour
 
     public void ReturnToMenu()
     {
+        isGameOver = true;
+        scoreManager.ResetScore();
+        selectionManager.ResetTimer();
         SceneManager.LoadScene("MenuScene"); 
     }
 }
