@@ -8,8 +8,13 @@ public class SongData : ScriptableObject
     public float duration;
     [Header("UI Info")]
     public Sprite songIcon;
+
     [Header("Gameplay Data")]
-    public BeatmapData beatmap;
+    public BeatMap beatmap; // Beatmap cố định (optional)
+
+    [Header("Generated Beatmap")]
+    [Tooltip("Nếu true, sẽ dùng generated beatmap thay vì beatmap cố định")]
+    public bool useGeneratedBeatmap = true;
 
     [Header("Progress Data")]
     public int highScore;

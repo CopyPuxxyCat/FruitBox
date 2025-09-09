@@ -10,17 +10,31 @@ public class FDNGameUIManager : MonoBehaviour
     private void Awake()
     {
         ShowThisPanel(songSelectPanel);
+        // Không gọi BuildSongList() ngay trong Awake
+    }
+
+    private void Start()
+    {
+        // Gọi sau khi tất cả Awake() đã chạy xong
         BuildSongList();
     }
 
     void CloseAllPanel()
     {
         songSelectPanel.SetActive(false);
-    }    
+    }
 
     void BuildSongList()
     {
-        foreach (Transform child in songListParent) Destroy(child.gameObject);
+        // Kiểm tra Instance trước khi sử dụng
+        if (FDNDataManager.Instance == null)
+        {
+            Debug.LogError("FDNDataManager.Instance is null! Make sure FDNDataManager is in scene.");
+            return;
+        }
+
+        foreach (Transform child in songListParent)
+            Destroy(child.gameObject);
 
         foreach (var song in allSongs)
         {
@@ -34,6 +48,7 @@ public class FDNGameUIManager : MonoBehaviour
     void OnSongSelected(SongData song)
     {
         FruitditionNinjaGameManager.Instance.StartSong(song);
+
         songSelectPanel.SetActive(false);
     }
 
@@ -41,6 +56,5 @@ public class FDNGameUIManager : MonoBehaviour
     {
         CloseAllPanel();
         panelName.SetActive(true);
-    }    
-
+    }
 }

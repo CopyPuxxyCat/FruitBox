@@ -16,50 +16,90 @@ public class SongProgressData
 [Serializable]
 public class GameSaveData
 {
-    public SongProgressData[] songs;
+    public SongProgressData[] songs = new SongProgressData[0]; // Khởi tạo mặc định
 }
 
 public class FDNDataManager : MonoBehaviour
 {
     public static FDNDataManager Instance;
-    private const string DATA_FILE = "fdn_save.json";
+    private const string DATA_FILE = "fdn_songdata_save.json";
 
     public GameSaveData data;
 
     void Awake()
     {
-        if (Instance != null && Instance != this) { Destroy(gameObject); return; }
+        // Singleton pattern với null check
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+
         Instance = this;
         DontDestroyOnLoad(this);
 
+        // Khởi tạo data trước khi load
+        data = new GameSaveData();
         LoadData();
     }
 
     void LoadData()
     {
         string path = Path.Combine(Application.persistentDataPath, DATA_FILE);
-        if (File.Exists(path))
+
+        try
         {
-            string encoded = File.ReadAllText(path);
-            string json = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
-            data = JsonUtility.FromJson<GameSaveData>(json);
+            if (File.Exists(path))
+            {
+                string encoded = File.ReadAllText(path);
+                string json = Encoding.UTF8.GetString(Convert.FromBase64String(encoded));
+                var loadedData = JsonUtility.FromJson<GameSaveData>(json);
+
+                // Null check cho dữ liệu load được
+                if (loadedData != null)
+                {
+                    data = loadedData;
+                }
+
+                Debug.Log($"Loaded {data.songs.Length} song progress data");
+            }
+            else
+            {
+                Debug.Log("No save file found. Creating new data.");
+            }
         }
-        else
+        catch (Exception e)
         {
-            data = new GameSaveData { songs = new SongProgressData[0] };
+            Debug.LogError($"Failed to load data: {e.Message}");
+            data = new GameSaveData(); // Reset về default
         }
     }
 
     public void SaveData()
     {
-        string json = JsonUtility.ToJson(data);
-        string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
-        string path = Path.Combine(Application.persistentDataPath, DATA_FILE);
-        File.WriteAllText(path, encoded);
+        try
+        {
+            string json = JsonUtility.ToJson(data, true);
+            string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+            string path = Path.Combine(Application.persistentDataPath, DATA_FILE);
+            File.WriteAllText(path, encoded);
+
+            Debug.Log("Game data saved successfully");
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Failed to save data: {e.Message}");
+        }
     }
 
     public void UpdateSongData(SongData song)
     {
+        if (song == null)
+        {
+            Debug.LogWarning("Cannot update null song data");
+            return;
+        }
+
         var entry = Array.Find(data.songs, x => x.songName == song.songName);
         if (entry == null)
         {
@@ -78,6 +118,12 @@ public class FDNDataManager : MonoBehaviour
 
     public void LoadSongData(SongData song)
     {
+        if (song == null)
+        {
+            Debug.LogWarning("Cannot load data for null song");
+            return;
+        }
+
         var entry = Array.Find(data.songs, x => x.songName == song.songName);
         if (entry != null)
         {
@@ -85,6 +131,14 @@ public class FDNDataManager : MonoBehaviour
             song.stars = entry.stars;
             song.progress = entry.progress;
             song.unlocked = entry.unlocked;
+        }
+        else
+        {
+            // Set default values for new song
+            song.highScore = 0;
+            song.stars = 0;
+            song.progress = 0f;
+            // song.unlocked giữ nguyên giá trị mặc định trong ScriptableObject
         }
     }
 }

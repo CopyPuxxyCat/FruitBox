@@ -16,6 +16,10 @@ MonoBehaviour:
   songClip: {fileID: 8300000, guid: c110bf1511af4c149837545ad05c339d, type: 3}
   duration: 191
   songIcon: {fileID: 0}
+  beatmap:
+    mapId: 0
+    rngSeed: 0
+    beatNotes: []
   highScore: 1500
   stars: 1
   progress: 150

@@ -23,6 +23,11 @@ public class FDNAudioController : MonoBehaviour
         countdownText.gameObject.SetActive(false);
     }
 
+    private void Start()
+    {
+        musicTimeline.gameObject.SetActive(false);
+    }
+
     public void PlaySong(SongData song)
     {
         currentSong = song;
