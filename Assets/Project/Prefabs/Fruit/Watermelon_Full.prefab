@@ -240,7 +240,7 @@ MonoBehaviour:
   fruitType: 0
   glowDuration: 1.3
   glowRotateSpeed: 180
-  fallSpeed: 50
+  fallSpeed: 60
   glowIntensity: 1.5
   glowColor: {r: 1, g: 0.20387341, b: 0.015686274, a: 1}
   sliceForce: 10

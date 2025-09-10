@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 
+// quản lí hiển thị combo lên màn hình
 public class FDNComboUI : MonoBehaviour
 {
     [SerializeField] private List<Image> comboSlots; 

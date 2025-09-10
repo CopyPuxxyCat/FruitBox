@@ -41,3 +41,13 @@ public class BeatMapCollection
 {
     public List<BeatMap> beatMaps = new();
 }
+
+[CreateAssetMenu(fileName = "FruitSpriteData", menuName = "FDN/FruitSpriteData")]
+public class FruitSpriteData : ScriptableObject
+{
+    public Sprite watermelonSprite;
+    public Sprite appleSprite;
+    public Sprite orangeSprite;
+    public Sprite bananaSprite;
+    public Sprite grapeSprite;
+}

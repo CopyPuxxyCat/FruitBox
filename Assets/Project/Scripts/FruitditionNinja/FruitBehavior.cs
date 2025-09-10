@@ -33,6 +33,8 @@ public class FruitBehavior : MonoBehaviour
     public float sliceForce = 5f;         // Lực văng của 2 mảnh
     public float sliceLifetime = 2f;      // Thời gian tồn tại của mảnh
 
+    public static event System.Action<FruitType, GameObject> OnFruitSliced;
+
     // Private variables
     private FruitState currentState = FruitState.Flying;
     private BeatNote beatNote;
@@ -246,7 +248,7 @@ public class FruitBehavior : MonoBehaviour
             return;
 
         currentState = FruitState.Sliced;
-
+        OnFruitSliced?.Invoke(fruitType, gameObject);
         // Stop all movement coroutines
         StopAllCoroutines();
 

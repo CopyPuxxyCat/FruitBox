@@ -53,14 +53,7 @@ public class FruitSpawner : MonoBehaviour
     public void LoadBeatmap(BeatMap map)
     {
         currentMap = map;
-        foreach (var note in map.beatNotes)
-        {
-            Debug.Log($"[Combo {note.comboId}] Glow at {note.glowTimeSec:F2}s " +
-                      $"Spawn at {note.spawnTimeSec:F2}s " +
-                      $"Peak {note.peakPosition} " +
-                      $"Spawn {note.spawnPosition} " +
-                      $"Fruit {note.fruitType}");
-        }
+        ComboPanelManager.Instance.InitializeCombos(map);
         StopAllCoroutines();
         StartCoroutine(SpawnRoutine());
     }
@@ -92,8 +85,9 @@ public class FruitSpawner : MonoBehaviour
         // Initialize fruit behavior with the beat note data
         var fruitBehavior = obj.GetComponent<FruitBehavior>();
         if (fruitBehavior != null)
-        {
+        {   
             fruitBehavior.Initialize(note, this);
+            ComboPanelManager.Instance.AddFruitToCombo(note.comboId, obj);
         }
         else
         {

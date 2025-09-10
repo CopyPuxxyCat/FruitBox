@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: FruitSpriteData
+  m_EditorClassIdentifier: Assembly-CSharp::FruitSpriteData
+  watermelonSprite: {fileID: 21300000, guid: 626a0120d531ec14fa710d50a219343c, type: 3}
+  appleSprite: {fileID: 21300000, guid: e920c4a78b4c3914b8a5e042a104bf69, type: 3}
+  orangeSprite: {fileID: 21300000, guid: 618c90011de9d3843b0b34a568c73049, type: 3}
+  bananaSprite: {fileID: 21300000, guid: 5ac0da7de64ef594ea5cda714cf4069f, type: 3}
+  grapeSprite: {fileID: 21300000, guid: 0de94e0be62f5d846bd7e75efb0eb34d, type: 3}

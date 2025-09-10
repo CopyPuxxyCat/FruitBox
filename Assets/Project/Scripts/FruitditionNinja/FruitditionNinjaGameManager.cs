@@ -34,8 +34,7 @@ public class FruitditionNinjaGameManager : MonoBehaviour
     private IEnumerator WaitForCountDown(SongData song)
     {
         yield return new WaitForSeconds(3.5f);
-        Debug.Log($"Starting song: {song.songName}");
-
+        
         var spawner = FindObjectOfType<FruitSpawner>();
 
         // Quyết định dùng beatmap nào
