@@ -4778,7 +4778,7 @@ Transform:
   m_GameObject: {fileID: 5387711829761015452}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.00999999, y: 0.089999996, z: -0.16666667}
+  m_LocalPosition: {x: 0.00999999, y: 0.089999996, z: 6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5069,17 +5069,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6326a7fa021e6794298a960c57d8b401, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  slicedTopPrefab: {fileID: 5387711829761015452}
-  slicedBottomPrefab: {fileID: 8335959062100601257}
+  slicedTopPiece: {fileID: 5387711829761015452}
+  slicedBottomPiece: {fileID: 8335959062100601257}
   sliceEffect: {fileID: 3394344078534457577}
   sliceSound: {fileID: 8300000, guid: 55d3be130f650474e84eb137e55eb464, type: 3}
   fruitType: 1
   glowDuration: 1.3
   glowRotateSpeed: 180
-  fallSpeed: 10
+  fallSpeed: 30
   glowIntensity: 1.5
   glowColor: {r: 0.18138811, g: 0.509434, b: 0.037486594, a: 1}
-  sliceForce: 5
+  sliceForce: 15
   sliceLifetime: 2
 --- !u!1 &8335959062100601257
 GameObject:
@@ -5107,7 +5107,7 @@ Transform:
   m_GameObject: {fileID: 8335959062100601257}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.00999999, y: -0.21333335, z: -0.16666667}
+  m_LocalPosition: {x: 0.00999999, y: -0.21333335, z: 6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

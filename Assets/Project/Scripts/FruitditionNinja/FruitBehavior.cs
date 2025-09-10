@@ -14,8 +14,8 @@ public enum FruitState
 public class FruitBehavior : MonoBehaviour
 {
     [Header("References")]
-    public GameObject slicedTopPrefab;    // Nửa trên khi bị chém
-    public GameObject slicedBottomPrefab; // Nửa dưới khi bị chém
+    public GameObject slicedTopPiece;     // Mảnh trên (đã có sẵn trong prefab)
+    public GameObject slicedBottomPiece;  // Mảnh dưới (đã có sẵn trong prefab)
     public ParticleSystem sliceEffect;    // Particle nổ ruột
     public AudioClip sliceSound;          // Âm thanh khi chém
     public FruitType fruitType;
@@ -69,6 +69,10 @@ public class FruitBehavior : MonoBehaviour
             originalColor = spriteRenderer.color;
         }
         originalScale = transform.localScale;
+
+        // Đảm bảo các mảnh bị ẩn ban đầu
+        if (slicedTopPiece != null) slicedTopPiece.SetActive(false);
+        if (slicedBottomPiece != null) slicedBottomPiece.SetActive(false);
     }
 
     public void Initialize(BeatNote note, FruitSpawner spawnerRef)
@@ -85,6 +89,7 @@ public class FruitBehavior : MonoBehaviour
         if (spriteRenderer != null)
         {
             spriteRenderer.color = originalColor;
+            spriteRenderer.enabled = true; // Đảm bảo sprite được bật
         }
         transform.localScale = originalScale;
 
@@ -93,6 +98,10 @@ public class FruitBehavior : MonoBehaviour
         {
             fruitCollider.enabled = true;
         }
+
+        // Ẩn các mảnh
+        if (slicedTopPiece != null) slicedTopPiece.SetActive(false);
+        if (slicedBottomPiece != null) slicedBottomPiece.SetActive(false);
 
         // Set movement parameters
         startPosition = note.spawnPosition;
@@ -244,10 +253,10 @@ public class FruitBehavior : MonoBehaviour
         // Play slice effects
         PlaySliceEffects();
 
-        // Create sliced pieces
+        // Create sliced pieces - UPDATED METHOD
         CreateSlicedPieces();
 
-        // Hide original fruit
+        // Hide original fruit sprite and collider (but keep gameObject active)
         if (spriteRenderer != null)
         {
             spriteRenderer.enabled = false;
@@ -277,22 +286,49 @@ public class FruitBehavior : MonoBehaviour
         }
     }
 
+    // UPDATED: Enable existing pieces instead of instantiating new ones
     private void CreateSlicedPieces()
     {
-        Vector3 currentPos = transform.position;
+        // Xác định hướng bắn dựa trên loại quả
+        Vector2 topDirection, bottomDirection;
+        GetSliceDirections(out topDirection, out bottomDirection);
 
-        // Create top piece
-        if (slicedTopPrefab != null)
+        // Enable và launch top piece
+        if (slicedTopPiece != null)
         {
-            GameObject topPiece = Instantiate(slicedTopPrefab, currentPos, transform.rotation);
-            LaunchSlicedPiece(topPiece, Vector2.up);
+            slicedTopPiece.transform.position = transform.position;
+            slicedTopPiece.transform.rotation = transform.rotation;
+            slicedTopPiece.SetActive(true);
+            LaunchSlicedPiece(slicedTopPiece, topDirection);
         }
 
-        // Create bottom piece
-        if (slicedBottomPrefab != null)
+        // Enable và launch bottom piece  
+        if (slicedBottomPiece != null)
         {
-            GameObject bottomPiece = Instantiate(slicedBottomPrefab, currentPos, transform.rotation);
-            LaunchSlicedPiece(bottomPiece, Vector2.down);
+            slicedBottomPiece.transform.position = transform.position;
+            slicedBottomPiece.transform.rotation = transform.rotation;
+            slicedBottomPiece.SetActive(true);
+            LaunchSlicedPiece(slicedBottomPiece, bottomDirection);
+        }
+    }
+
+    // NEW: Xác định hướng bắn theo loại quả
+    private void GetSliceDirections(out Vector2 topDirection, out Vector2 bottomDirection)
+    {
+        switch (fruitType)
+        {
+            case FruitType.Banana:
+            case FruitType.Grape:
+                // Banana và Grape: trái-phải
+                topDirection = Vector2.left;
+                bottomDirection = Vector2.right;
+                break;
+
+            default:
+                // Các quả khác: trên-dưới
+                topDirection = Vector2.up;
+                bottomDirection = Vector2.down;
+                break;
         }
     }
 
@@ -315,8 +351,26 @@ public class FruitBehavior : MonoBehaviour
         // Add slight rotation
         rb.angularVelocity = Random.Range(-360f, 360f);
 
-        // Destroy piece after lifetime
-        Destroy(piece, sliceLifetime);
+        // Hide piece after lifetime (don't destroy since it's part of prefab)
+        StartCoroutine(HidePieceAfterDelay(piece, sliceLifetime));
+    }
+
+    // NEW: Hide piece instead of destroying it
+    private IEnumerator HidePieceAfterDelay(GameObject piece, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (piece != null)
+        {
+            piece.SetActive(false);
+
+            // Reset rigidbody
+            var rb = piece.GetComponent<Rigidbody2D>();
+            if (rb != null)
+            {
+                rb.velocity = Vector2.zero;
+                rb.angularVelocity = 0f;
+            }
+        }
     }
 
     private IEnumerator ReturnAfterDelay(float delay)
@@ -346,6 +400,10 @@ public class FruitBehavior : MonoBehaviour
         {
             fruitCollider.enabled = true;
         }
+
+        // Hide sliced pieces
+        if (slicedTopPiece != null) slicedTopPiece.SetActive(false);
+        if (slicedBottomPiece != null) slicedBottomPiece.SetActive(false);
 
         // Return to spawner pool
         if (spawner != null)

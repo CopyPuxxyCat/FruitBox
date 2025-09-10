@@ -5871,7 +5871,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8599861707879649713, guid: 4eea555377be9754597ebf40c7ac3bf8, type: 3}
       propertyPath: fruitType
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
