@@ -4,7 +4,6 @@ using UnityEngine;
 using System.IO;
 using System.Text;
 
-
 public class BeatNoteGenerator : MonoBehaviour
 {
     private const int FRAME_RATE = 60;
@@ -23,15 +22,14 @@ public class BeatNoteGenerator : MonoBehaviour
 
     [Header("Spawn Line (world units)")]
     public float spawnY = -40f;
-    public float spawnXMin = -30f;
-    public float spawnXMax = 30f;
+    public float spawnXMin = -20f;
+    public float spawnXMax = 20f;
 
     [Header("In-Combo Gap")]
     [Tooltip("Khoảng cách thời gian giữa 2 quả trong cùng combo (giây).")]
     public float inComboGap = 0.3f;
 
     [Header("Fruit Sizes (for spacing)")]
-    // dùng làm padding vị trí đỉnh để tránh chồng chéo
     public Vector2 watermelonSize = new(8f, 10f);
     public Vector2 appleSize = new(5.5f, 5.5f);
     public Vector2 orangeSize = new(5.5f, 5.5f);
@@ -39,32 +37,31 @@ public class BeatNoteGenerator : MonoBehaviour
     public Vector2 grapeSize = new(9f, 6f);
 
     private Dictionary<FruitType, Vector2> fruitSizes;
-
     private BeatMapCollection beatMapCollection = new();
     private string saveFilePath;
 
-    // Cấu trúc combo theo “frame” như yêu cầu
+    // Cấu trúc combo theo thời gian (GIÂY)
     private struct ComboBand
     {
-        public int startFrame;
-        public int endFrame;
-        public int fruitCount;     // số quả / combo
-        public float comboSpacing; // giây giữa 2 COMBO liên tiếp trong band
+        public float startTimeSec;      // Thời điểm bắt đầu (giây)
+        public float endTimeSec;        // Thời điểm kết thúc (giây) 
+        public int fruitCount;          // số quả / combo
+        public float comboSpacing;      // giây giữa 2 COMBO liên tiếp trong band
 
-        public ComboBand(int s, int e, int count, float gap)
-        { startFrame = s; endFrame = e; fruitCount = count; comboSpacing = gap; }
+        public ComboBand(float s, float e, int count, float gap)
+        { startTimeSec = s; endTimeSec = e; fruitCount = count; comboSpacing = gap; }
     }
 
     private ComboBand[] GetBands() => new ComboBand[]
     {
-        new(  1,   9, 1, 2f),   // 1–9f: combo 1, cách 2s
-        new( 11,  33, 2, 2f),   // 11–33f: combo 2, cách 2s
-        new( 35,  66, 2, 2f),   // 35–66f: combo 2, cách 2s
-        new( 68,  92, 3, 2.5f), // 68–92f: combo 3, cách 2.5s
-        new( 94, 137, 3, 3f),   // 94–137f: combo 3, cách 3s
-        new(139, 161, 4, 3f),   // 139–161f: combo 4, cách 3s
-        new(163, 186, 5, 3f),   // 163–186f: combo 5, cách 3s
-        new(190, 190, 1, 0f),   // 190f: 1 quả cuối
+        new( 3f,  9f, 1, 2f),   // 3–9s: combo 1 quả, cách 2s
+        new(11f, 33f, 2, 2f),   // 11–33s: combo 2 quả, cách 2s
+        new(35f, 66f, 2, 2f),   // 35–66s: combo 2 quả, cách 2s
+        new(68f, 92f, 3, 2.5f), // 68–92s: combo 3 quả, cách 2.5s
+        new(94f, 137f, 3, 3f),  // 94–137s: combo 3 quả, cách 3s
+        new(139f, 161f, 4, 3f), // 139–161s: combo 4 quả, cách 3s
+        new(163f, 186f, 5, 3f), // 163–186s: combo 5 quả, cách 3s
+        new(190f, 190f, 1, 0f), // 190s: 1 quả cuối
     };
 
     void Awake()
@@ -89,7 +86,6 @@ public class BeatNoteGenerator : MonoBehaviour
         beatMapCollection.beatMaps.Clear();
         for (int i = 0; i < 10; i++)
         {
-            // seed để tái tạo chính xác
             int seed = Mathf.FloorToInt(UnityEngine.Random.value * int.MaxValue);
             beatMapCollection.beatMaps.Add(GenerateBeatMap(seed));
         }
@@ -106,9 +102,9 @@ public class BeatNoteGenerator : MonoBehaviour
         foreach (var band in GetBands())
         {
             // Các thời điểm đỉnh (glow) của combo trong band
-            var glowFrames = MakeGlowFramesInBand(band, rng);
+            var glowTimes = MakeGlowTimesInBand(band, rng);
 
-            foreach (int baseGlowFrame in glowFrames)
+            foreach (float baseGlowTime in glowTimes)
             {
                 // Quyết định vị trí đỉnh cho combo này
                 var peaks = MakeComboPeakPositions(band.fruitCount, rng);
@@ -116,8 +112,8 @@ public class BeatNoteGenerator : MonoBehaviour
                 // Sinh các note trong combo (cách nhau inComboGap)
                 for (int i = 0; i < band.fruitCount; i++)
                 {
-                    int glowFrame = baseGlowFrame + Mathf.RoundToInt(i * inComboGap * FRAME_RATE);
-                    float glowTimeSec = glowFrame / (float)FRAME_RATE;
+                    float glowTimeSec = baseGlowTime + (i * inComboGap);
+                    int glowFrame = Mathf.RoundToInt(glowTimeSec * FRAME_RATE);
 
                     // Loại quả ngẫu nhiên
                     var fruitType = (FruitType)rng.Next(0, Enum.GetValues(typeof(FruitType)).Length);
@@ -154,32 +150,36 @@ public class BeatNoteGenerator : MonoBehaviour
 
         // Sắp theo thời gian spawn để khi chơi chỉ việc đọc tuần tự
         map.beatNotes.Sort((a, b) => a.spawnTimeSec.CompareTo(b.spawnTimeSec));
+
+        Debug.Log($"Generated beatmap with {map.beatNotes.Count} notes, {comboId} combos");
         return map;
     }
 
     // ========= HELPERS =========
 
-    // Sinh các frame “đỉnh” (glow) trong một band
-    private List<int> MakeGlowFramesInBand(ComboBand band, System.Random rng)
+    // Sinh các thời điểm "đỉnh" (glow) trong một band - FIXED VERSION
+    private List<float> MakeGlowTimesInBand(ComboBand band, System.Random rng)
     {
-        var frames = new List<int>();
+        var times = new List<float>();
 
-        if (band.startFrame == 190 && band.endFrame == 190)
+        // Case đặc biệt: 190s (1 note cuối)
+        if (band.startTimeSec == 190f && band.endTimeSec == 190f)
         {
-            frames.Add(190);
-            return frames;
+            times.Add(190f);
+            return times;
         }
 
-        int gapFrames = Mathf.RoundToInt(band.comboSpacing * FRAME_RATE);
-        int f = band.startFrame;
+        // Bắt đầu từ startTime, cứ mỗi comboSpacing giây thì tạo 1 combo
+        float currentTime = band.startTimeSec;
 
-        while (f <= band.endFrame)
+        while (currentTime <= band.endTimeSec)
         {
-            frames.Add(f);
-            f += gapFrames;
+            times.Add(currentTime);
+            currentTime += band.comboSpacing;
         }
 
-        return frames;
+        Debug.Log($"Band [{band.startTimeSec:F1}s-{band.endTimeSec:F1}s]: Generated {times.Count} combos");
+        return times;
     }
 
     // Dàn đều (>=4) hoặc random có tránh đụng (<=3)
@@ -201,7 +201,7 @@ public class BeatNoteGenerator : MonoBehaviour
             for (int i = 0; i < fruitCount; i++)
             {
                 float x = usableMin + i * step;
-                float y = UnityEngine.Random.Range(peakYMin, peakYMax); // chút ngẫu nhiên theo trục Y
+                float y = LerpRandom(peakYMin, peakYMax, rng);
                 peaks.Add(new Vector2(x, y));
             }
         }
@@ -210,8 +210,8 @@ public class BeatNoteGenerator : MonoBehaviour
             int triesMax = 60;
             while (peaks.Count < fruitCount && triesMax-- > 0)
             {
-                float x = UnityEngine.Random.Range(peakXMin + margin, peakXMax - margin);
-                float y = UnityEngine.Random.Range(peakYMin, peakYMax);
+                float x = LerpRandom(peakXMin + margin, peakXMax - margin, rng);
+                float y = LerpRandom(peakYMin, peakYMax, rng);
                 var candidate = new Vector2(x, y);
 
                 if (!TooClose(candidate, peaks, largestWidth * 0.8f))
@@ -222,7 +222,7 @@ public class BeatNoteGenerator : MonoBehaviour
             while (peaks.Count < fruitCount)
             {
                 float x = Mathf.Lerp(peakXMin, peakXMax, peaks.Count / (float)fruitCount);
-                float y = UnityEngine.Random.Range(peakYMin, peakYMax);
+                float y = LerpRandom(peakYMin, peakYMax, rng);
                 peaks.Add(new Vector2(x, y));
             }
         }

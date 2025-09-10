@@ -1,4 +1,3 @@
-
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,7 +8,7 @@ public class FruitSpawner : MonoBehaviour
     public class FruitPrefabEntry
     {
         public FruitType fruitType;
-        public GameObject prefab;
+        public GameObject prefab; // Prefab phải có FruitBehavior script
         public int initialPoolSize = 10;
     }
 
@@ -36,6 +35,14 @@ public class FruitSpawner : MonoBehaviour
             for (int i = 0; i < entry.initialPoolSize; i++)
             {
                 var go = Instantiate(entry.prefab, transform);
+
+                // Ensure fruit has FruitBehavior component
+                var fruitBehavior = go.GetComponent<FruitBehavior>();
+                if (fruitBehavior == null)
+                {
+                    Debug.LogError($"Fruit prefab {entry.prefab.name} missing FruitBehavior component!");
+                }
+
                 go.SetActive(false);
                 queue.Enqueue(go);
             }
@@ -46,6 +53,14 @@ public class FruitSpawner : MonoBehaviour
     public void LoadBeatmap(BeatMap map)
     {
         currentMap = map;
+        foreach (var note in map.beatNotes)
+        {
+            Debug.Log($"[Combo {note.comboId}] Glow at {note.glowTimeSec:F2}s " +
+                      $"Spawn at {note.spawnTimeSec:F2}s " +
+                      $"Peak {note.peakPosition} " +
+                      $"Spawn {note.spawnPosition} " +
+                      $"Fruit {note.fruitType}");
+        }
         StopAllCoroutines();
         StartCoroutine(SpawnRoutine());
     }
@@ -54,6 +69,7 @@ public class FruitSpawner : MonoBehaviour
     {
         foreach (var note in currentMap.beatNotes)
         {
+            // Wait until it's time to spawn this fruit
             yield return new WaitUntil(() => audioController.GetSongTime() >= note.spawnTimeSec);
             SpawnFruit(note);
         }
@@ -68,16 +84,29 @@ public class FruitSpawner : MonoBehaviour
             return;
         }
 
+        // Position and activate the fruit
         obj.transform.position = note.spawnPosition;
         obj.transform.rotation = Quaternion.identity;
         obj.SetActive(true);
 
-        var rb = obj.GetComponent<Rigidbody2D>();
-        if (rb != null)
+        // Initialize fruit behavior with the beat note data
+        var fruitBehavior = obj.GetComponent<FruitBehavior>();
+        if (fruitBehavior != null)
         {
-            rb.velocity = Vector2.zero;
-            Vector2 dir = Quaternion.Euler(0, 0, note.shootAngle) * Vector2.right;
-            rb.AddForce(dir * note.shootSpeed, ForceMode2D.Impulse);
+            fruitBehavior.Initialize(note, this);
+        }
+        else
+        {
+            Debug.LogError($"Fruit {obj.name} missing FruitBehavior component!");
+
+            // Fallback: use old physics method
+            var rb = obj.GetComponent<Rigidbody2D>();
+            if (rb != null)
+            {
+                rb.velocity = Vector2.zero;
+                Vector2 dir = Quaternion.Euler(0, 0, note.shootAngle) * Vector2.right;
+                rb.AddForce(dir * note.shootSpeed, ForceMode2D.Impulse);
+            }
         }
     }
 
@@ -94,9 +123,19 @@ public class FruitSpawner : MonoBehaviour
         }
         else
         {
-            // nếu pool thiếu thì instantiate thêm (hoặc tuỳ bạn quyết định)
+            // If pool is empty, instantiate more
             var entry = fruitPrefabs.Find(e => e.fruitType == type);
-            obj = Instantiate(entry.prefab, transform);
+            if (entry != null)
+            {
+                obj = Instantiate(entry.prefab, transform);
+
+                // Ensure new object has FruitBehavior
+                var fruitBehavior = obj.GetComponent<FruitBehavior>();
+                if (fruitBehavior == null)
+                {
+                    Debug.LogError($"New fruit prefab {entry.prefab.name} missing FruitBehavior component!");
+                }
+            }
         }
 
         return obj;
@@ -106,9 +145,32 @@ public class FruitSpawner : MonoBehaviour
     {
         obj.SetActive(false);
         if (poolDict.ContainsKey(type))
+        {
             poolDict[type].Enqueue(obj);
+        }
         else
+        {
             Destroy(obj);
+        }
+    }
+
+    // Test method to manually spawn a fruit
+    [ContextMenu("Test Spawn Random Fruit")]
+    public void TestSpawnFruit()
+    {
+        var testNote = new BeatNote
+        {
+            comboId = 0,
+            glowFrame = 60,
+            glowTimeSec = 1f,
+            spawnTimeSec = 0f,
+            spawnPosition = new Vector2(0, -5),
+            peakPosition = new Vector2(0, 5),
+            shootSpeed = 10f,
+            shootAngle = 90f,
+            fruitType = (FruitType)Random.Range(0, System.Enum.GetValues(typeof(FruitType)).Length)
+        };
+
+        SpawnFruit(testNote);
     }
 }
-
