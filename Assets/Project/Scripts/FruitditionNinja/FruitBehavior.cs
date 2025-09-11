@@ -270,7 +270,6 @@ public class FruitBehavior : MonoBehaviour
         if (currentState == FruitState.Sliced || currentState == FruitState.Destroyed)
             return;
 
-        // Check if object is active
         if (!gameObject.activeInHierarchy)
         {
             Debug.LogWarning("Trying to slice inactive fruit");
@@ -280,16 +279,16 @@ public class FruitBehavior : MonoBehaviour
         currentState = FruitState.Sliced;
         OnFruitSliced?.Invoke(fruitType, gameObject);
 
-        // Stop all movement coroutines
+        // Stop movement coroutines but allow slice effects
         StopAllCoroutines();
 
-        // Play slice effects
+        // Play slice effects FIRST
         PlaySliceEffects();
 
-        // Create sliced pieces
+        // Create sliced pieces SECOND
         CreateSlicedPieces();
 
-        // Hide original fruit sprite and collider (but keep gameObject active)
+        // Hide sprite and collider THIRD
         if (spriteRenderer != null)
         {
             spriteRenderer.enabled = false;
@@ -299,16 +298,29 @@ public class FruitBehavior : MonoBehaviour
             fruitCollider.enabled = false;
         }
 
-        // Return to pool after effect duration - USE SAFE METHOD
+        // Start effect completion timer LAST
         if (gameObject.activeInHierarchy)
         {
-            StartCoroutine(ReturnAfterDelay(sliceLifetime));
+            StartCoroutine(ReturnAfterSliceEffect());
         }
-        else
+    }
+
+    // Separate coroutine for slice effect cleanup
+    private IEnumerator ReturnAfterSliceEffect()
+    {
+        // Wait for slice animation and effects to complete
+        float effectDuration = sliceLifetime; // Use the configured slice lifetime
+
+        yield return new WaitForSeconds(effectDuration);
+
+        // Additional safety check - ensure pieces have finished animating
+        if (slicedTopPiece != null && slicedTopPiece.activeInHierarchy)
         {
-            // If somehow inactive, return immediately
-            ReturnToPool();
+            yield return new WaitForSeconds(0.2f);
         }
+
+        // Now safe to return to pool
+        ReturnToPool();
     }
 
     public static void SimulateSlice(FruitType type, GameObject dummy)
@@ -505,12 +517,14 @@ public class FruitBehavior : MonoBehaviour
         if (currentState == FruitState.Destroyed) return;
 
         currentState = FruitState.Destroyed;
-        isPartOfActiveCombo = false;
 
         // Stop all tweens on this object
         LeanTween.cancel(gameObject);
 
-        // Reset visual properties
+        // Stop all coroutines before deactivating
+        StopAllCoroutines();
+
+        // Reset visual properties - BUT KEEP OBJECT ACTIVE
         if (spriteRenderer != null)
         {
             spriteRenderer.enabled = true;
@@ -529,15 +543,24 @@ public class FruitBehavior : MonoBehaviour
         if (slicedTopPiece != null) slicedTopPiece.SetActive(false);
         if (slicedBottomPiece != null) slicedBottomPiece.SetActive(false);
 
-        // Return to spawner pool
-        if (spawner != null)
+        // FIX: Don't deactivate the GameObject immediately
+        // Let the spawner handle deactivation
+        if (spawner != null && beatNote != null)
         {
             spawner.ReturnToPool(beatNote.fruitType, gameObject);
         }
         else
         {
-            gameObject.SetActive(false);
+            // Fallback: deactivate after a short delay to ensure cleanup
+            StartCoroutine(DelayedDeactivate());
         }
+    }
+
+    // Delayed deactivate as fallback
+    private IEnumerator DelayedDeactivate()
+    {
+        yield return new WaitForEndOfFrame();
+        gameObject.SetActive(false);
     }
 
     // Test methods

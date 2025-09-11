@@ -25,6 +25,9 @@ public class ComboPanel : MonoBehaviour
     private CanvasGroup canvasGroup;
     private RectTransform rectTransform;
 
+    [Header("Completion Settings")]
+    [SerializeField] private float completionDelay = 0.5f; // Delay trước khi hide panel
+
     // Current combo data reference
     private ComboData currentComboData;
 
@@ -255,9 +258,62 @@ public class ComboPanel : MonoBehaviour
         {
             currentComboData.ForceComplete();
             StopAllCoroutines();
-            ReturnToPool();
+
+            // Start completion delay instead of immediate return
+            StartCoroutine(CompletionDelayCoroutine());
         }
     }
+
+    // Completion delay coroutine
+    private IEnumerator CompletionDelayCoroutine()
+    {
+        // Show completion visual feedback
+        ShowCompletionFeedback();
+
+        // Wait for delay period
+        yield return new WaitForSeconds(completionDelay);
+
+        // Now return to pool
+        ReturnToPool();
+    }
+
+    // Visual feedback for completion
+    private void ShowCompletionFeedback()
+    {
+        // Update all icons to completed color
+        foreach (var icon in comboIcons)
+        {
+            if (icon.enabled)
+            {
+                LeanTween.color(icon.rectTransform, completedColor, 0.2f);
+                LeanTween.scale(icon.gameObject, Vector3.one * 1.2f, 0.1f)
+                    .setOnComplete(() =>
+                    {
+                        LeanTween.scale(icon.gameObject, Vector3.one, 0.2f);
+                    });
+            }
+        }
+
+        // Progress bar to full
+        if (progressBar)
+        {
+            LeanTween.value(progressBar.gameObject, progressBar.value, 1f, 0.3f)
+                .setOnUpdate((float val) => progressBar.value = val)
+                .setEaseOutBack();
+        }
+
+        // Panel glow effect
+        if (canvasGroup != null)
+        {
+            LeanTween.alphaCanvas(canvasGroup, 0.7f, 0.1f)
+                .setLoopPingPong(3)
+                .setOnComplete(() =>
+                {
+                    if (canvasGroup != null) canvasGroup.alpha = 1f;
+                });
+        }
+    }
+
 
     public void OnComboSubmitted()
     {
@@ -327,6 +383,8 @@ public class ComboPanel : MonoBehaviour
             if (canvasGroup != null) canvasGroup.alpha = 0.7f;
         });
     }
+
+
 
     // Public getters
     public bool IsInUse => isInUse;

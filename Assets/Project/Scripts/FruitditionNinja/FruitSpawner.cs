@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class FruitSpawner : MonoBehaviour
@@ -45,7 +46,11 @@ public class FruitSpawner : MonoBehaviour
         foreach (var entry in fruitPrefabs)
         {
             var queue = new Queue<GameObject>();
-            for (int i = 0; i < entry.initialPoolSize; i++)
+
+            // INCREASED POOL SIZE - 10 per type (total 50)
+            int poolSize = Mathf.Max(entry.initialPoolSize, 10);
+
+            for (int i = 0; i < poolSize; i++)
             {
                 var go = Instantiate(entry.prefab, transform);
 
@@ -60,7 +65,13 @@ public class FruitSpawner : MonoBehaviour
                 queue.Enqueue(go);
             }
             poolDict[entry.fruitType] = queue;
+
+            Debug.Log($"Initialized pool for {entry.fruitType}: {poolSize} objects");
         }
+
+        // Log total pool size
+        int totalPoolSize = fruitPrefabs.Sum(entry => Mathf.Max(entry.initialPoolSize, 10));
+        Debug.Log($"Total fruit pool size: {totalPoolSize} objects");
     }
 
     public void LoadBeatmap(BeatMap map)
@@ -130,24 +141,42 @@ public class FruitSpawner : MonoBehaviour
         var queue = poolDict[type];
         GameObject obj = null;
 
+        if (queue.Count <= 2)
+        {
+            Debug.LogWarning($"Pool for {type} running low: {queue.Count} remaining");
+        }
+
         if (queue.Count > 0)
         {
             obj = queue.Dequeue();
         }
         else
         {
-            // If pool is empty, instantiate more
+            // Pool empty - create more objects
             var entry = fruitPrefabs.Find(e => e.fruitType == type);
             if (entry != null)
             {
-                obj = Instantiate(entry.prefab, transform);
-
-                // Ensure new object has FruitBehavior
-                var fruitBehavior = obj.GetComponent<FruitBehavior>();
-                if (fruitBehavior == null)
+                // Create batch of new objects
+                int batchSize = 5; // Create 5 at once to avoid frequent instantiation
+                for (int i = 0; i < batchSize; i++)
                 {
-                    Debug.LogError($"New fruit prefab {entry.prefab.name} missing FruitBehavior component!");
+                    var newObj = Instantiate(entry.prefab, transform);
+
+                    var fruitBehavior = newObj.GetComponent<FruitBehavior>();
+                    if (fruitBehavior == null)
+                    {
+                        Debug.LogError($"New fruit prefab {entry.prefab.name} missing FruitBehavior component!");
+                    }
+
+                    newObj.SetActive(false);
+
+                    if (i == 0)
+                        obj = newObj; // Use first one
+                    else
+                        queue.Enqueue(newObj); // Queue the rest
                 }
+
+                Debug.Log($"Pool for {type} expanded by {batchSize} objects");
             }
         }
 
@@ -167,7 +196,7 @@ public class FruitSpawner : MonoBehaviour
             LeanTween.cancel(obj);
         }
 
-        // Deactivate object first
+        // IMPORTANT: Only deactivate when actually returning to pool
         obj.SetActive(false);
 
         // Add to pool
@@ -200,5 +229,27 @@ public class FruitSpawner : MonoBehaviour
         };
 
         SpawnFruit(testNote);
+    }
+
+    [ContextMenu("Debug Pool Status")]
+    public void DebugPoolStatus()
+    {
+        Debug.Log("=== FRUIT POOL STATUS ===");
+        foreach (var kvp in poolDict)
+        {
+            Debug.Log($"{kvp.Key}: {kvp.Value.Count} available");
+        }
+
+        // Count active fruits
+        var activeFruits = FindObjectsOfType<FruitBehavior>()
+            .Where(f => f.gameObject.activeInHierarchy)
+            .GroupBy(f => f.GetFruitType())
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        Debug.Log("=== ACTIVE FRUITS ===");
+        foreach (var kvp in activeFruits)
+        {
+            Debug.Log($"{kvp.Key}: {kvp.Value} active");
+        }
     }
 }

@@ -245,22 +245,23 @@ public class ComboPanelManager : MonoBehaviour
 
     public void SubmitComboManually()
     {
-        // Submit all active combos
+        // Get all active combos before clearing
         var combosToSubmit = activeCombos.Where(c => c.IsActive()).ToList();
 
         foreach (var combo in combosToSubmit)
         {
-            // Clear fruits
-            ClearComboActiveFruits(combo);
-
-            // Force complete
+            // Force complete the combo logic
             combo.ForceComplete();
 
-            // Notify UI panel
+            // Show completion effect on UI panel
             if (combo.uiPanel != null)
             {
                 combo.uiPanel.OnComboSubmitted();
             }
+
+            // For manual submit, we want immediate visual feedback but still allow slice effects
+            // Start the delayed cleanup
+            StartCoroutine(DelayedFruitCleanup(combo));
         }
 
         Debug.Log($"Manually submitted {combosToSubmit.Count} active combos");
@@ -305,17 +306,65 @@ public class ComboPanelManager : MonoBehaviour
 
     private void OnComboCompleted(ComboData combo)
     {
-        // Clear active fruits
-        ClearComboActiveFruits(combo);
+        // DON'T clear active fruits immediately - let slice effects finish
+        // ClearComboActiveFruits(combo); // REMOVE THIS LINE
 
-        // Notify UI panel
+        // Notify UI panel (which will delay its removal)
         if (combo.uiPanel != null)
         {
             combo.uiPanel.OnComboCompleted();
         }
 
-        // Remove from active combos (will be removed when panel returns to pool)
+        // Start delayed cleanup for fruits
+        StartCoroutine(DelayedFruitCleanup(combo));
+
         Debug.Log($"Combo {combo.comboId} completed!");
+    }
+
+    // Delayed fruit cleanup to allow slice effects
+    private IEnumerator DelayedFruitCleanup(ComboData combo)
+    {
+        if (combo == null) yield break;
+
+        // Wait for slice effects to complete
+        float maxSliceEffectTime = 2.5f; // Slightly longer than sliceLifetime in FruitBehavior
+        yield return new WaitForSeconds(maxSliceEffectTime);
+
+        // Now safely clear any remaining fruits
+        ClearComboActiveFruitsDelayed(combo);
+    }
+
+    // Safe delayed fruit clearing
+    private void ClearComboActiveFruitsDelayed(ComboData combo)
+    {
+        if (combo == null || spawner == null) return;
+
+        var fruitsToRemove = combo.activeFruits.ToList();
+
+        foreach (var go in fruitsToRemove)
+        {
+            if (go == null) continue;
+
+            var fb = go.GetComponent<FruitBehavior>();
+            if (fb != null)
+            {
+                // Only clear if not already sliced/destroyed
+                var state = fb.GetCurrentState();
+                if (state != FruitState.Sliced && state != FruitState.Destroyed)
+                {
+                    // Force slice to show effect, then return to pool naturally
+                    fb.SliceFruit();
+                }
+                // If already sliced, let it complete naturally
+            }
+            else
+            {
+                // If no FruitBehavior, just destroy
+                Destroy(go);
+            }
+        }
+
+        combo.activeFruits.Clear();
     }
 
     private void ClearAllCombos()
