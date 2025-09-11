@@ -7,31 +7,37 @@ public class ComboPanelManager : MonoBehaviour
 {
     public static ComboPanelManager Instance;
 
-    [Header("Panels (0=top/future,1=middle/next,2=bottom/current)")]
-    [SerializeField] private List<ComboPanel> panels; // size==3 expected, assign in inspector
-    [Header("Timing")]
-    [SerializeField] private float timerDuration = 1.5f;     // time until slide
-    [SerializeField] private float slideDuration = 0.5f;     // slide animation time
-    [SerializeField] private Vector2 slideOffset = new Vector2(0, 170f); // target anchored position delta for slide
-    //[SerializeField] private float oldPanelOpacityOnOverlap = 0.7f;
+    [Header("Pool Settings")]
+    [SerializeField] private GameObject comboPanelPrefab;
+    [SerializeField] private int poolSize = 10;
+    [SerializeField] private Transform panelContainer; // Parent object to hold active panels
 
-    private Queue<ComboData> comboQueue;
-    private ComboData currentCombo;
-    private ComboData oldCombo;
-    private Coroutine currentTimerCoroutine;
+    [Header("Timing")]
+    [SerializeField] private float spawnOffset = -1f; // Spawn panels 1s before first fruit
+
+    private Queue<ComboPanel> panelPool;
+    private List<ComboData> allCombos;
+    private Queue<ComboData> pendingCombos;
+    private List<ComboData> activeCombos;
+
     private FruitSpawner spawner;
+    private Coroutine spawnCoroutine;
 
     private void Awake()
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        comboQueue = new Queue<ComboData>();
+
+        InitializePool();
+
+        allCombos = new List<ComboData>();
+        pendingCombos = new Queue<ComboData>();
+        activeCombos = new List<ComboData>();
         spawner = FindObjectOfType<FruitSpawner>();
     }
 
     private void OnEnable()
     {
-        // subscribe to fruit slice event
         FruitBehavior.OnFruitSliced += OnFruitSliced;
     }
 
@@ -40,193 +46,192 @@ public class ComboPanelManager : MonoBehaviour
         FruitBehavior.OnFruitSliced -= OnFruitSliced;
     }
 
+    private void InitializePool()
+    {
+        panelPool = new Queue<ComboPanel>();
+
+        // Create panel container if not assigned
+        if (panelContainer == null)
+        {
+            GameObject container = new GameObject("ComboPanelContainer");
+            container.transform.SetParent(transform);
+            panelContainer = container.transform;
+        }
+
+        // Create pool objects
+        for (int i = 0; i < poolSize; i++)
+        {
+            GameObject panelObj = Instantiate(comboPanelPrefab, panelContainer);
+            ComboPanel panel = panelObj.GetComponent<ComboPanel>();
+
+            if (panel == null)
+            {
+                Debug.LogError("ComboPanelPrefab must have ComboPanel component!");
+                continue;
+            }
+
+            panelObj.SetActive(false);
+            panelPool.Enqueue(panel);
+        }
+
+        Debug.Log($"Initialized combo panel pool with {panelPool.Count} panels");
+    }
+
     public void InitializeCombos(BeatMap beatMap)
     {
-        comboQueue.Clear();
+        // Stop any existing spawn coroutine
+        if (spawnCoroutine != null)
+        {
+            StopCoroutine(spawnCoroutine);
+        }
 
-        // group beatNotes into combos (ordered by spawnTimeSec within same comboId)
+        // Clear existing data
+        ClearAllCombos();
+
+        // Group beatNotes into combos
         var grouped = beatMap.beatNotes.GroupBy(n => n.comboId).OrderBy(g => g.Min(n => n.spawnTimeSec));
+
         foreach (var group in grouped)
         {
-            var seq = group.OrderBy(n => n.spawnTimeSec).Select(n => n.fruitType).ToList();
-            comboQueue.Enqueue(new ComboData(group.Key, seq));
+            var sortedNotes = group.OrderBy(n => n.spawnTimeSec).ToList();
+            var sequence = sortedNotes.Select(n => n.fruitType).ToList();
+            float firstFruitSpawnTime = sortedNotes.First().spawnTimeSec;
+
+            ComboData combo = new ComboData(group.Key, sequence, firstFruitSpawnTime);
+            allCombos.Add(combo);
+            pendingCombos.Enqueue(combo);
         }
 
-        // Reset panels visually
-        foreach (var p in panels) p.ResetPanel();
+        Debug.Log($"Initialized {allCombos.Count} combos");
 
-        // preload first up to 3 combos
-        SpawnNextAsCurrent();
-        PreloadNextPanels();
+        // Start spawn coroutine
+        spawnCoroutine = StartCoroutine(SpawnComboCoroutine());
     }
 
-    private void SpawnNextAsCurrent()
+    private IEnumerator SpawnComboCoroutine()
     {
-        if (comboQueue.Count == 0) { currentCombo = null; return; }
-        currentCombo = comboQueue.Dequeue();
-        currentCombo.startTime = Time.time;
-
-        // update bottom panel (index 2)
-        panels[2].UpdateDisplay(currentCombo, 1f);
-
-        // start timer for current
-        StopCurrentTimerCoroutine();
-        currentTimerCoroutine = StartCoroutine(CurrentTimerCoroutine(currentCombo));
-    }
-
-    private IEnumerator CurrentTimerCoroutine(ComboData combo)
-    {
-        float remaining = timerDuration;
-        while (remaining > 0f && !combo.isCompleted)
+        var audioController = FindObjectOfType<FDNAudioController>();
+        if (audioController == null)
         {
-            remaining -= Time.deltaTime;
-            float progress = remaining / timerDuration;
-            panels[2].UpdateDisplay(combo, progress);
-            yield return null;
+            Debug.LogError("FDNAudioController not found!");
+            yield break;
         }
 
-        if (!combo.isCompleted)
+        while (pendingCombos.Count > 0)
         {
-            // slide up current into old slot
-            SlideCurrentUp();
+            ComboData nextCombo = pendingCombos.Peek();
+            float targetSpawnTime = nextCombo.spawnTime + spawnOffset;
+
+            // Wait until it's time to spawn this combo panel
+            yield return new WaitUntil(() => audioController.GetSongTime() >= targetSpawnTime);
+
+            // Spawn the combo panel
+            SpawnComboPanel(pendingCombos.Dequeue());
         }
     }
 
-    private void StopCurrentTimerCoroutine()
+    private void SpawnComboPanel(ComboData comboData)
     {
-        if (currentTimerCoroutine != null) { StopCoroutine(currentTimerCoroutine); currentTimerCoroutine = null; }
+        ComboPanel panel = GetPanelFromPool();
+        if (panel == null)
+        {
+            Debug.LogWarning("No available panels in pool! Consider increasing pool size.");
+            return;
+        }
+
+        // Initialize panel with combo data
+        panel.gameObject.SetActive(true);
+        panel.InitializeWithCombo(comboData);
+
+        // Add to active combos
+        activeCombos.Add(comboData);
+
+        NotifyActiveComboCountChanged();
+
+        Debug.Log($"Spawned combo panel for combo {comboData.comboId} with {comboData.fruitSequence.Count} fruits");
     }
 
-    private void PreloadNextPanels()
+    private ComboPanel GetPanelFromPool()
     {
-        // middle = next, top = future
-        if (comboQueue.Count > 0)
+        if (panelPool.Count > 0)
         {
-            var next = comboQueue.Peek();
-            panels[1].UpdateDisplay(new ComboData(next.comboId, next.fruitSequence), 0f);
+            return panelPool.Dequeue();
         }
-        if (comboQueue.Count > 1)
+
+        // Pool is empty, try to create more
+        if (comboPanelPrefab != null && panelContainer != null)
         {
-            var future = comboQueue.ElementAt(1);
-            panels[0].UpdateDisplay(new ComboData(future.comboId, future.fruitSequence), 0f);
-        }
-    }
+            GameObject panelObj = Instantiate(comboPanelPrefab, panelContainer);
+            ComboPanel panel = panelObj.GetComponent<ComboPanel>();
 
-    private void SlideCurrentUp()
-    {
-        if (currentCombo == null) return;
-
-        oldCombo = currentCombo;
-        StopCurrentTimerCoroutine();
-
-        RectTransform rt = panels[2].GetComponent<RectTransform>();
-
-        // slide anchors thay vì anchoredPosition
-        Vector2 fromMin = new Vector2(0, 0);
-        Vector2 fromMax = new Vector2(1, 0.5f);
-        Vector2 toMin = new Vector2(0, 0.5f);
-        Vector2 toMax = new Vector2(1, 1);
-
-        // đảm bảo về state ban đầu
-        rt.anchorMin = fromMin;
-        rt.anchorMax = fromMax;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
-
-        LeanTween.value(rt.gameObject, 0f, 1f, slideDuration)
-            .setEaseInOutQuad()
-            .setOnUpdate((float t) =>
+            if (panel != null)
             {
-                rt.anchorMin = Vector2.Lerp(fromMin, toMin, t);
-                rt.anchorMax = Vector2.Lerp(fromMax, toMax, t);
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
-            })
-            .setOnComplete(() =>
-            {
-                SwapPanelReferencesAfterSlide();
-            });
-
-        StartCoroutine(OldComboTimerCoroutine(oldCombo));
-    }
-
-
-    private IEnumerator OldComboTimerCoroutine(ComboData old)
-    {
-        float remaining = timerDuration; // old gets same duration after slide
-        // blink at last 0.5s
-        while (remaining > 0f && !old.isCompleted)
-        {
-            if (remaining <= 0.5f)
-            {
-                panels[1].Blink();
+                Debug.Log("Created additional panel due to pool shortage");
+                return panel;
             }
-            remaining -= Time.deltaTime;
-            yield return null;
         }
 
-        if (!old.isCompleted)
+        return null;
+    }
+
+    public void ReturnPanelToPool(ComboPanel panel)
+    {
+        if (panel == null) return;
+
+        panel.gameObject.SetActive(false);
+        panelPool.Enqueue(panel);
+
+        // Remove from active combos if it's there
+        ComboData comboData = panel.GetComboData();
+        if (comboData != null)
         {
-            // auto-submit
-            AutoSubmitOld();
+            activeCombos.Remove(comboData);
+            NotifyActiveComboCountChanged();
         }
     }
 
-    private void SwapPanelReferencesAfterSlide()
+    public void OnComboEnterPhase2(ComboData comboData)
     {
-        // panels list corresponds to visual stack: [0]=topfuture, [1]=middle (old), [2]=bottom (current)
-        // after sliding bottom->middle, we want to rotate references so that panels[1] now shows oldCombo,
-        // and the freed panel (previously bottom) is reassigned as new bottom ready for next combo.
-        // We'll do a circular rotate: temp = panels[0]; panels[0]=panels[1]; panels[1]=panels[2]; panels[2]=temp;
-        var temp = panels[0];
-        panels[0] = panels[1];
-        panels[1] = panels[2];
-        panels[2] = temp;
+        // This is called when a combo enters phase 2 (sliding up)
+        // This is the perfect time to spawn the next combo panel if available
 
-        // Update UI: middle (panels[1]) should show oldCombo state (progress continues handled in OldComboTimerCoroutine)
-        panels[1].UpdateDisplay(oldCombo, 1f);
-
-        // Now spawn next combo as new current
-        SpawnNextAsCurrent();
-        PreloadNextPanels();
+        if (pendingCombos.Count > 0)
+        {
+            // Note: The spawn coroutine will handle the timing automatically
+            Debug.Log($"Combo {comboData.comboId} entered phase 2");
+        }
     }
 
-    private void AutoSubmitOld()
-    {
-        if (oldCombo == null) return;
-        // clear fruits for old and finalize
-        ClearComboActiveFruits(oldCombo);
-        oldCombo.ForceComplete();
-        panels[1].ResetPanel();
-        oldCombo = null;
-    }
-
-    // Called when fruit is spawned to track active fruit objects
     public void AddFruitToCombo(int comboId, GameObject fruit)
     {
-        if (currentCombo != null && currentCombo.comboId == comboId)
+        ComboData combo = activeCombos.FirstOrDefault(c => c.comboId == comboId);
+        if (combo != null)
         {
-            currentCombo.activeFruits.Add(fruit);
-            return;
-        }
-        if (oldCombo != null && oldCombo.comboId == comboId)
-        {
-            oldCombo.activeFruits.Add(fruit);
-            return;
+            combo.activeFruits.Add(fruit);
         }
     }
 
-    private void ClearComboActiveFruits(ComboData combo)
+    public void ClearComboActiveFruits(ComboData combo)
     {
-        if (combo == null) return;
+        if (combo == null || spawner == null) return;
 
-        foreach (var go in combo.activeFruits.ToList())
+        var fruitsToRemove = combo.activeFruits.ToList(); // Create copy to avoid modification during iteration
+
+        foreach (var go in fruitsToRemove)
         {
             if (go == null) continue;
+
             var fb = go.GetComponent<FruitBehavior>();
             if (fb != null)
             {
-                // deactivate and return to pool
+                // Force fruit to sliced state to prevent further coroutines
+                if (fb.GetCurrentState() != FruitState.Sliced && fb.GetCurrentState() != FruitState.Destroyed)
+                {
+                    // Stop all coroutines before returning to pool
+                    fb.StopAllCoroutines();
+                    LeanTween.cancel(go);
+                }
+
                 spawner.ReturnToPool(fb.GetFruitType(), go);
             }
             else
@@ -234,85 +239,153 @@ public class ComboPanelManager : MonoBehaviour
                 Destroy(go);
             }
         }
+
         combo.activeFruits.Clear();
     }
 
-    // Called on player pressing manual submit
     public void SubmitComboManually()
     {
-        // Clear current and old
-        if (currentCombo != null && !currentCombo.isCompleted)
+        // Submit all active combos
+        var combosToSubmit = activeCombos.Where(c => c.IsActive()).ToList();
+
+        foreach (var combo in combosToSubmit)
         {
-            ClearComboActiveFruits(currentCombo);
-            currentCombo.ForceComplete();
-            panels[2].ResetPanel();
-        }
-        if (oldCombo != null && !oldCombo.isCompleted)
-        {
-            ClearComboActiveFruits(oldCombo);
-            oldCombo.ForceComplete();
-            panels[1].ResetPanel();
-            oldCombo = null;
+            // Clear fruits
+            ClearComboActiveFruits(combo);
+
+            // Force complete
+            combo.ForceComplete();
+
+            // Notify UI panel
+            if (combo.uiPanel != null)
+            {
+                combo.uiPanel.OnComboSubmitted();
+            }
         }
 
-        // Cancel timers and spawn next combos appropriately
-        StopCurrentTimerCoroutine();
-        SpawnNextAsCurrent();
-        PreloadNextPanels();
+        Debug.Log($"Manually submitted {combosToSubmit.Count} active combos");
     }
 
-    // Score reaction when a fruit is sliced
     private void OnFruitSliced(FruitType type, GameObject fruit)
     {
-        // First, try current
-        bool advanced = false;
-        if (currentCombo != null && !currentCombo.isCompleted)
+        bool foundMatch = false;
+
+        // Try to match with active combos (prioritize phase 1 over phase 2)
+        var sortedCombos = activeCombos.Where(c => c.IsActive())
+                                     .OrderBy(c => c.currentPhase == ComboPhase.Phase1_Active ? 0 : 1)
+                                     .ThenBy(c => c.spawnTime);
+
+        foreach (var combo in sortedCombos)
         {
-            advanced = currentCombo.TryAdvance(type);
-            if (advanced)
+            if (combo.TryAdvance(type))
             {
-                // Update bottom panel
-                panels[2].UpdateDisplay(currentCombo, Mathf.Clamp01((timerDuration - (Time.time - currentCombo.startTime)) / timerDuration));
-                // if completed -> finalize
-                if (currentCombo.isCompleted)
+                foundMatch = true;
+
+                // Update UI if panel exists
+                if (combo.uiPanel != null)
                 {
-                    OnComboCompleted(currentCombo);
+                    // Panel will update itself through its coroutine
                 }
-                return;
+
+                // Check if combo is completed
+                if (combo.isCompleted)
+                {
+                    OnComboCompleted(combo);
+                }
+
+                break; // Only match with the first valid combo
             }
         }
 
-        // Then try old combo (overlap)
-        if (oldCombo != null && !oldCombo.isCompleted)
+        if (!foundMatch)
         {
-            bool advOld = oldCombo.TryAdvance(type);
-            if (advOld)
-            {
-                panels[1].UpdateDisplay(oldCombo, 1f);
-                if (oldCombo.isCompleted)
-                {
-                    // finalize old combo
-                    ClearComboActiveFruits(oldCombo);
-                    panels[1].ResetPanel();
-                    oldCombo = null;
-                }
-            }
+            Debug.Log($"Sliced {type} but no active combo could advance");
         }
     }
 
-    private void OnComboCompleted(ComboData completed)
+    private void OnComboCompleted(ComboData combo)
     {
-        // award score (handled elsewhere, hook here if needed)
         // Clear active fruits
-        ClearComboActiveFruits(completed);
-        completed.ForceComplete();
+        ClearComboActiveFruits(combo);
 
-        // Reset bottom panel and rotate
-        panels[2].ResetPanel();
+        // Notify UI panel
+        if (combo.uiPanel != null)
+        {
+            combo.uiPanel.OnComboCompleted();
+        }
 
-        // Spawn next combo immediately
-        StopCurrentTimerCoroutine();
-        SpawnNextAsCurrent();
-        PreloadNextPanels();
+        // Remove from active combos (will be removed when panel returns to pool)
+        Debug.Log($"Combo {combo.comboId} completed!");
+    }
+
+    private void ClearAllCombos()
+    {
+        // Stop spawn coroutine
+        if (spawnCoroutine != null)
+        {
+            StopCoroutine(spawnCoroutine);
+            spawnCoroutine = null;
+        }
+
+        // Clear all active combos and return panels to pool
+        foreach (var combo in activeCombos.ToList())
+        {
+            ClearComboActiveFruits(combo);
+            if (combo.uiPanel != null)
+            {
+                combo.uiPanel.OnComboSubmitted();
+            }
+        }
+
+        // Clear lists
+        allCombos.Clear();
+        pendingCombos.Clear();
+        activeCombos.Clear();
+    }
+
+    private void OnDestroy()
+    {
+        ClearAllCombos();
+    }
+
+    // Debug methods
+    [ContextMenu("Debug Print Active Combos")]
+    public void DebugPrintActiveCombos()
+    {
+        Debug.Log($"Active combos: {activeCombos.Count}");
+        foreach (var combo in activeCombos)
+        {
+            Debug.Log($"Combo {combo.comboId}: Phase {combo.currentPhase}, Progress {combo.activeIndex}/{combo.fruitSequence.Count}");
+        }
+    }
+
+    [ContextMenu("Debug Submit All")]
+    public void DebugSubmitAll()
+    {
+        SubmitComboManually();
+    }
+
+    // Public methods for UI integration
+    public bool HasActiveCombos()
+    {
+        return activeCombos.Count > 0 && activeCombos.Any(c => c.IsActive());
+    }
+
+    public int GetActiveComboCount()
+    {
+        return activeCombos.Count(c => c.IsActive());
+    }
+
+    public List<ComboData> GetActiveCombos()
+    {
+        return activeCombos.Where(c => c.IsActive()).ToList();
+    }
+
+    // Events for UI integration
+    public static event System.Action<int> OnActiveComboCountChanged;
+
+    private void NotifyActiveComboCountChanged()
+    {
+        OnActiveComboCountChanged?.Invoke(GetActiveComboCount());
     }
 }

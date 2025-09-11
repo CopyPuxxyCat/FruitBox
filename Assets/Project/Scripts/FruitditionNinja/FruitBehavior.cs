@@ -33,6 +33,11 @@ public class FruitBehavior : MonoBehaviour
     public float sliceForce = 5f;         // Lực văng của 2 mảnh
     public float sliceLifetime = 2f;      // Thời gian tồn tại của mảnh
 
+    [Header("Combo Integration")]
+    [SerializeField] private bool showComboFeedback = true;
+    [SerializeField] private Color comboValidColor = Color.green;
+    [SerializeField] private Color comboInvalidColor = Color.red;
+
     public static event System.Action<FruitType, GameObject> OnFruitSliced;
 
     // Private variables
@@ -53,6 +58,10 @@ public class FruitBehavior : MonoBehaviour
     private Color originalColor;
     private Vector3 originalScale;
 
+    // Combo system integration
+    private bool isPartOfActiveCombo = false;
+    private int assignedComboId = -1;
+
     void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -72,7 +81,7 @@ public class FruitBehavior : MonoBehaviour
         }
         originalScale = transform.localScale;
 
-        // Đảm bảo các mảnh bị ẩn ban đầu
+        // Ensure pieces are hidden initially
         if (slicedTopPiece != null) slicedTopPiece.SetActive(false);
         if (slicedBottomPiece != null) slicedBottomPiece.SetActive(false);
     }
@@ -81,17 +90,19 @@ public class FruitBehavior : MonoBehaviour
     {
         beatNote = note;
         spawner = spawnerRef;
+        assignedComboId = note.comboId;
 
         // Reset state
         currentState = FruitState.Flying;
         transform.position = note.spawnPosition;
         transform.rotation = Quaternion.identity;
+        isPartOfActiveCombo = true;
 
         // Reset visual
         if (spriteRenderer != null)
         {
             spriteRenderer.color = originalColor;
-            spriteRenderer.enabled = true; // Đảm bảo sprite được bật
+            spriteRenderer.enabled = true;
         }
         transform.localScale = originalScale;
 
@@ -101,7 +112,7 @@ public class FruitBehavior : MonoBehaviour
             fruitCollider.enabled = true;
         }
 
-        // Ẩn các mảnh
+        // Hide pieces
         if (slicedTopPiece != null) slicedTopPiece.SetActive(false);
         if (slicedBottomPiece != null) slicedBottomPiece.SetActive(false);
 
@@ -116,7 +127,7 @@ public class FruitBehavior : MonoBehaviour
     private IEnumerator FruitLifeCycle()
     {
         // Phase 1: Fly to peak (1 second)
-        yield return StartCoroutine(FlyTopeak());
+        yield return StartCoroutine(FlyToPeak());
 
         // Phase 2: Glow and rotate (1.3 seconds)
         if (currentState == FruitState.Flying) // Chưa bị chém
@@ -131,7 +142,7 @@ public class FruitBehavior : MonoBehaviour
         }
     }
 
-    private IEnumerator FlyTopeak()
+    private IEnumerator FlyToPeak()
     {
         currentState = FruitState.Flying;
 
@@ -144,7 +155,7 @@ public class FruitBehavior : MonoBehaviour
 
             float t = elapsedTime / duration;
 
-            // Sử dụng physics trajectory thay vì lerp đơn giản
+            // Use physics trajectory instead of simple lerp
             Vector3 currentPos = CalculateTrajectoryPosition(t);
             transform.position = currentPos;
 
@@ -206,8 +217,20 @@ public class FruitBehavior : MonoBehaviour
     {
         if (spriteRenderer != null)
         {
+            // Enhanced glow effect with combo awareness
+            Color targetGlow = glowColor;
+
+            // Add combo-specific visual hints
+            if (isPartOfActiveCombo && showComboFeedback)
+            {
+                if (IsValidForCurrentCombo())
+                {
+                    targetGlow = Color.Lerp(glowColor, comboValidColor, 0.3f);
+                }
+            }
+
             // Tween to glow color and scale
-            LeanTween.color(gameObject, glowColor, 0.2f);
+            LeanTween.color(gameObject, targetGlow, 0.2f);
             LeanTween.scale(gameObject, originalScale * glowIntensity, 0.2f)
                      .setEaseOutBack();
         }
@@ -247,15 +270,23 @@ public class FruitBehavior : MonoBehaviour
         if (currentState == FruitState.Sliced || currentState == FruitState.Destroyed)
             return;
 
+        // Check if object is active
+        if (!gameObject.activeInHierarchy)
+        {
+            Debug.LogWarning("Trying to slice inactive fruit");
+            return;
+        }
+
         currentState = FruitState.Sliced;
         OnFruitSliced?.Invoke(fruitType, gameObject);
+
         // Stop all movement coroutines
         StopAllCoroutines();
 
         // Play slice effects
         PlaySliceEffects();
 
-        // Create sliced pieces - UPDATED METHOD
+        // Create sliced pieces
         CreateSlicedPieces();
 
         // Hide original fruit sprite and collider (but keep gameObject active)
@@ -268,34 +299,86 @@ public class FruitBehavior : MonoBehaviour
             fruitCollider.enabled = false;
         }
 
-        // Return to pool after effect duration
-        StartCoroutine(ReturnAfterDelay(sliceLifetime));
+        // Return to pool after effect duration - USE SAFE METHOD
+        if (gameObject.activeInHierarchy)
+        {
+            StartCoroutine(ReturnAfterDelay(sliceLifetime));
+        }
+        else
+        {
+            // If somehow inactive, return immediately
+            ReturnToPool();
+        }
     }
 
-    private void PlaySliceEffects()
+    public static void SimulateSlice(FruitType type, GameObject dummy)
     {
-        // Play particle effect
+        OnFruitSliced?.Invoke(type, dummy);
+    }
+
+    private bool CheckComboValidity()
+    {
+        if (!isPartOfActiveCombo) return false;
+
+        // Check with combo manager if this fruit type is currently valid
+        var comboManager = ComboPanelManager.Instance;
+        if (comboManager == null) return false;
+
+        // This would be determined by the combo system
+        // For now, assume it's valid if part of active combo
+        return true;
+    }
+
+    private bool IsValidForCurrentCombo()
+    {
+        // Check if this fruit type is currently needed for any active combo
+        var comboManager = ComboPanelManager.Instance;
+        if (comboManager == null) return false;
+
+        // This could be expanded to check actual combo state
+        return isPartOfActiveCombo;
+    }
+
+    private void PlaySliceEffects(bool isValidForCombo = true)
+    {
+        // Enhanced particle effect based on combo validity
         if (sliceEffect != null)
         {
             sliceEffect.transform.position = transform.position;
+
+            // Modify particle color for combo feedback
+            if (showComboFeedback)
+            {
+                var main = sliceEffect.main;
+                main.startColor = isValidForCombo ? comboValidColor : comboInvalidColor;
+            }
+
             sliceEffect.Play();
         }
 
-        // Play sound
+        // Play sound with pitch variation for combo feedback
         if (audioSource != null && sliceSound != null)
         {
+            audioSource.pitch = isValidForCombo ? 1.2f : 0.8f;
             audioSource.PlayOneShot(sliceSound);
+            audioSource.pitch = 1f; // Reset pitch
+        }
+
+        // Screen shake for valid combo hits
+        if (isValidForCombo)
+        {
+            // Could add camera shake here
+            // CameraShake.Instance?.Shake(0.1f, 0.2f);
         }
     }
 
-    // UPDATED: Enable existing pieces instead of instantiating new ones
     private void CreateSlicedPieces()
     {
-        // Xác định hướng bắn dựa trên loại quả
+        // Determine slice direction based on fruit type
         Vector2 topDirection, bottomDirection;
         GetSliceDirections(out topDirection, out bottomDirection);
 
-        // Enable và launch top piece
+        // Enable and launch top piece
         if (slicedTopPiece != null)
         {
             slicedTopPiece.transform.position = transform.position;
@@ -304,7 +387,7 @@ public class FruitBehavior : MonoBehaviour
             LaunchSlicedPiece(slicedTopPiece, topDirection);
         }
 
-        // Enable và launch bottom piece  
+        // Enable and launch bottom piece  
         if (slicedBottomPiece != null)
         {
             slicedBottomPiece.transform.position = transform.position;
@@ -314,20 +397,19 @@ public class FruitBehavior : MonoBehaviour
         }
     }
 
-    // NEW: Xác định hướng bắn theo loại quả
     private void GetSliceDirections(out Vector2 topDirection, out Vector2 bottomDirection)
     {
         switch (fruitType)
         {
             case FruitType.Banana:
             case FruitType.Grape:
-                // Banana và Grape: trái-phải
+                // Banana and Grape: left-right split
                 topDirection = Vector2.left;
                 bottomDirection = Vector2.right;
                 break;
 
             default:
-                // Các quả khác: trên-dưới
+                // Other fruits: top-bottom split
                 topDirection = Vector2.up;
                 bottomDirection = Vector2.down;
                 break;
@@ -336,6 +418,13 @@ public class FruitBehavior : MonoBehaviour
 
     private void LaunchSlicedPiece(GameObject piece, Vector2 direction)
     {
+        // Check if this object is still active before starting coroutine
+        if (!gameObject.activeInHierarchy)
+        {
+            Debug.LogWarning("Trying to launch sliced piece on inactive fruit object");
+            return;
+        }
+
         // Add random angle variation
         float angleVariation = Random.Range(-30f, 30f);
         direction = Quaternion.Euler(0, 0, angleVariation) * direction;
@@ -353,11 +442,12 @@ public class FruitBehavior : MonoBehaviour
         // Add slight rotation
         rb.angularVelocity = Random.Range(-360f, 360f);
 
-        // Hide piece after lifetime (don't destroy since it's part of prefab)
-        StartCoroutine(HidePieceAfterDelay(piece, sliceLifetime));
+        // Hide piece after lifetime - USE STATIC COROUTINE METHOD
+        FruitSliceCoroutineRunner.Instance.StartDelayedAction(sliceLifetime, () => {
+            HidePieceCallback(piece);
+        });
     }
 
-    // NEW: Hide piece instead of destroying it
     private IEnumerator HidePieceAfterDelay(GameObject piece, float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -377,13 +467,45 @@ public class FruitBehavior : MonoBehaviour
 
     private IEnumerator ReturnAfterDelay(float delay)
     {
-        yield return new WaitForSeconds(delay);
+        float elapsed = 0f;
+        while (elapsed < delay)
+        {
+            // Check if object is still active and valid
+            if (!gameObject.activeInHierarchy || currentState == FruitState.Destroyed)
+            {
+                yield break;
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
         ReturnToPool();
+    }
+
+    private void HidePieceCallback(GameObject piece)
+    {
+        if (piece != null && piece.activeInHierarchy)
+        {
+            piece.SetActive(false);
+
+            // Reset rigidbody
+            var rb = piece.GetComponent<Rigidbody2D>();
+            if (rb != null)
+            {
+                rb.velocity = Vector2.zero;
+                rb.angularVelocity = 0f;
+            }
+        }
     }
 
     private void ReturnToPool()
     {
+        // Prevent multiple returns
+        if (currentState == FruitState.Destroyed) return;
+
         currentState = FruitState.Destroyed;
+        isPartOfActiveCombo = false;
 
         // Stop all tweens on this object
         LeanTween.cancel(gameObject);
@@ -418,13 +540,13 @@ public class FruitBehavior : MonoBehaviour
         }
     }
 
-    // Test method - called when B is pressed
+    // Test methods
     public void TestSlice()
     {
         SliceFruit();
     }
 
-    // Public method to check if fruit can be sliced
+    // Public methods for game systems
     public bool CanBeSliced()
     {
         return currentState == FruitState.Flying ||
@@ -432,13 +554,10 @@ public class FruitBehavior : MonoBehaviour
                currentState == FruitState.Falling;
     }
 
-    // Get current state for scoring system
     public FruitState GetCurrentState() => currentState;
-
-    // Get fruit type for scoring
     public FruitType GetFruitType() => fruitType;
+    public int GetComboId() => assignedComboId;
 
-    // Get timing info for perfect/good/miss scoring
     public float GetGlowProgress()
     {
         if (currentState != FruitState.Glowing) return -1f;
@@ -447,9 +566,7 @@ public class FruitBehavior : MonoBehaviour
         return Mathf.Clamp01(elapsedTime / glowDuration);
     }
 
-    // Get combo ID for combo scoring
-    public int GetComboId() => beatNote?.comboId ?? -1;
-
+    // Mouse and keyboard input for testing
     void Update()
     {
         // Test input - remove in production

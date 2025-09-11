@@ -81,4 +81,24 @@ public class FruitditionNinjaGameManager : MonoBehaviour
     }
 
     public SongData GetCurrentSong() => currentSong;
+
+    [Header("Input")]
+    [SerializeField] private KeyCode submitComboKey = KeyCode.Space;
+
+    private void Update()
+    {
+        // Handle manual combo submission
+        if (Input.GetKeyDown(submitComboKey))
+        {
+            SubmitCurrentCombos();
+        }
+    }
+
+    public void SubmitCurrentCombos()
+    {
+        if (ComboPanelManager.Instance != null)
+        {
+            ComboPanelManager.Instance.SubmitComboManually();
+        }
+    }
 }

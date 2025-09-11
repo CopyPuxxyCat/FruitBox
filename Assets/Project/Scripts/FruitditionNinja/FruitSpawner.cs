@@ -22,7 +22,20 @@ public class FruitSpawner : MonoBehaviour
     void Awake()
     {
         audioController = FindObjectOfType<FDNAudioController>();
+        // Ensure coroutine runner exists
+        EnsureCoroutineRunner();
+
         InitPool();
+    }
+
+    private void EnsureCoroutineRunner()
+    {
+        if (FruitSliceCoroutineRunner.Instance == null)
+        {
+            GameObject runner = new GameObject("FruitSliceCoroutineRunner");
+            runner.AddComponent<FruitSliceCoroutineRunner>();
+            Debug.Log("Created FruitSliceCoroutineRunner for safe coroutine management");
+        }
     }
 
     private void InitPool()
@@ -53,8 +66,9 @@ public class FruitSpawner : MonoBehaviour
     public void LoadBeatmap(BeatMap map)
     {
         currentMap = map;
-        ComboPanelManager.Instance.InitializeCombos(map);
+        
         StopAllCoroutines();
+        ComboPanelManager.Instance.InitializeCombos(map);
         StartCoroutine(SpawnRoutine());
     }
 
@@ -85,9 +99,14 @@ public class FruitSpawner : MonoBehaviour
         // Initialize fruit behavior with the beat note data
         var fruitBehavior = obj.GetComponent<FruitBehavior>();
         if (fruitBehavior != null)
-        {   
+        {
             fruitBehavior.Initialize(note, this);
-            ComboPanelManager.Instance.AddFruitToCombo(note.comboId, obj);
+
+            // THAY ĐỔI: Sử dụng Instance thay vì trực tiếp truy cập
+            if (ComboPanelManager.Instance != null)
+            {
+                ComboPanelManager.Instance.AddFruitToCombo(note.comboId, obj);
+            }
         }
         else
         {
@@ -137,13 +156,28 @@ public class FruitSpawner : MonoBehaviour
 
     public void ReturnToPool(FruitType type, GameObject obj)
     {
+        if (obj == null) return;
+
+        // Stop all operations on the fruit before returning to pool
+        var fruitBehavior = obj.GetComponent<FruitBehavior>();
+        if (fruitBehavior != null)
+        {
+            // Stop all coroutines and tweens on the fruit
+            fruitBehavior.StopAllCoroutines();
+            LeanTween.cancel(obj);
+        }
+
+        // Deactivate object first
         obj.SetActive(false);
+
+        // Add to pool
         if (poolDict.ContainsKey(type))
         {
             poolDict[type].Enqueue(obj);
         }
         else
         {
+            Debug.LogWarning($"Pool for {type} not found, destroying object");
             Destroy(obj);
         }
     }

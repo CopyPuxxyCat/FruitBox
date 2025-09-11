@@ -54,13 +54,13 @@ public class BeatNoteGenerator : MonoBehaviour
 
     private ComboBand[] GetBands() => new ComboBand[]
     {
-        new( 3f,  9f, 1, 2f),   // 3–9s: combo 1 quả, cách 2s
-        new(11f, 33f, 2, 2f),   // 11–33s: combo 2 quả, cách 2s
-        new(35f, 66f, 2, 2f),   // 35–66s: combo 2 quả, cách 2s
-        new(68f, 92f, 3, 2.5f), // 68–92s: combo 3 quả, cách 2.5s
-        new(94f, 137f, 3, 3f),  // 94–137s: combo 3 quả, cách 3s
-        new(139f, 161f, 4, 3f), // 139–161s: combo 4 quả, cách 3s
-        new(163f, 186f, 5, 3f), // 163–186s: combo 5 quả, cách 3s
+        new( 3f,  9f, 1, 2.3f),   // 3–9s: combo 1 quả, cách 2s
+        new(11f, 32f, 2, 2.6f),   // 11–33s: combo 2 quả, cách 2s
+        new(35f, 65f, 2, 2.6f),   // 35–66s: combo 2 quả, cách 2s
+        new(68f, 91f, 3, 2.9f), // 68–92s: combo 3 quả, cách 2.5s
+        new(94f, 136f, 3, 2.9f),  // 94–137s: combo 3 quả, cách 3s
+        new(139f, 160f, 4, 3.2f), // 139–161s: combo 4 quả, cách 3s
+        new(163f, 186f, 5, 3.5f), // 163–186s: combo 5 quả, cách 3s
         new(190f, 190f, 1, 0f), // 190s: 1 quả cuối
     };
 
